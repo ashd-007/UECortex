@@ -25,6 +25,9 @@ public:
 	// Build tools/list response array
 	TArray<TSharedPtr<FJsonObject>> BuildToolsList() const;
 
+	// Build list_tool_groups response — categories with counts and tool names
+	TSharedPtr<FJsonObject> BuildGroupsList() const;
+
 	// Dynamic enable/disable
 	bool EnableTool(const FString& ToolName);
 	bool DisableTool(const FString& ToolName);
@@ -37,7 +40,8 @@ public:
 	int32 GetEnabledToolCount() const;
 
 private:
-	FMCPToolRegistry() = default;
+	FMCPToolRegistry();
+	void RegisterBuiltins();
 
 	TArray<TSharedRef<FMCPToolModuleBase>> Modules;
 	TArray<FMCPToolDef> Tools;

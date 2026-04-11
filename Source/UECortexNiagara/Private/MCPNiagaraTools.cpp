@@ -386,15 +386,15 @@ FMCPToolResult FMCPNiagaraTools::NiagaraSetComponentParameter(const TSharedPtr<F
 		FString Type = TypeStr.ToLower();
 		if (Type == TEXT("float"))
 		{
-			Comp->SetNiagaraVariableFloat(ParamName, FCString::Atof(*ValueStr));
+			Comp->SetVariableFloat(FName(*ParamName), FCString::Atof(*ValueStr));
 		}
 		else if (Type == TEXT("int"))
 		{
-			Comp->SetNiagaraVariableInt(ParamName, FCString::Atoi(*ValueStr));
+			Comp->SetVariableInt(FName(*ParamName), FCString::Atoi(*ValueStr));
 		}
 		else if (Type == TEXT("bool"))
 		{
-			Comp->SetNiagaraVariableBool(ParamName, ValueStr.ToBool());
+			Comp->SetVariableBool(FName(*ParamName), ValueStr.ToBool());
 		}
 		else if (Type == TEXT("vector"))
 		{
@@ -404,7 +404,7 @@ FMCPToolResult FMCPNiagaraTools::NiagaraSetComponentParameter(const TSharedPtr<F
 				Parts.IsValidIndex(0) ? FCString::Atof(*Parts[0]) : 0.f,
 				Parts.IsValidIndex(1) ? FCString::Atof(*Parts[1]) : 0.f,
 				Parts.IsValidIndex(2) ? FCString::Atof(*Parts[2]) : 0.f);
-			Comp->SetNiagaraVariableVec3(ParamName, Val);
+			Comp->SetVariableVec3(FName(*ParamName), Val);
 		}
 		else if (Type == TEXT("color"))
 		{
@@ -415,7 +415,7 @@ FMCPToolResult FMCPNiagaraTools::NiagaraSetComponentParameter(const TSharedPtr<F
 				Parts.IsValidIndex(1) ? FCString::Atof(*Parts[1]) : 0.f,
 				Parts.IsValidIndex(2) ? FCString::Atof(*Parts[2]) : 0.f,
 				Parts.IsValidIndex(3) ? FCString::Atof(*Parts[3]) : 1.f);
-			Comp->SetNiagaraVariableLinearColor(ParamName, Val);
+			Comp->SetVariableLinearColor(FName(*ParamName), Val);
 		}
 		else
 		{

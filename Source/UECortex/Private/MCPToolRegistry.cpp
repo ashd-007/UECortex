@@ -9,11 +9,49 @@ FMCPToolRegistry& FMCPToolRegistry::Get()
 	return Instance;
 }
 
+FMCPToolRegistry::FMCPToolRegistry()
+{
+	RegisterBuiltins();
+}
+
+void FMCPToolRegistry::RegisterBuiltins()
+{
+	FMCPToolDef ListGroups;
+	ListGroups.Name        = TEXT("list_tool_groups");
+	ListGroups.Description = TEXT("List all tool categories with their tool names and counts. Use this to discover what's available before diving into tools/list.");
+	ListGroups.Category    = TEXT("meta");
+	ListGroups.Handler     = [this](const TSharedPtr<FJsonObject>&) -> FMCPToolResult
+	{
+		TSharedPtr<FJsonObject> Data = BuildGroupsList();
+		int32 Total = 0;
+		const TArray<TSharedPtr<FJsonValue>>* Groups;
+		if (Data->TryGetArrayField(TEXT("groups"), Groups))
+			for (auto& G : *Groups)
+			{
+				double Count = 0;
+				G->AsObject()->TryGetNumberField(TEXT("count"), Count);
+				Total += (int32)Count;
+			}
+		return FMCPToolResult::Success(
+			FString::Printf(TEXT("%d tools across %d categories"), Total, Groups ? Groups->Num() : 0),
+			Data);
+	};
+	Tools.Add(ListGroups);
+}
+
 void FMCPToolRegistry::RegisterModule(TSharedRef<FMCPToolModuleBase> Module)
 {
+	int32 Before = Tools.Num();
 	Module->RegisterTools(Tools);
+	// Auto-tag category for any newly added tools that don't have one set
+	FString ModuleName = Module->GetModuleName();
+	for (int32 i = Before; i < Tools.Num(); i++)
+	{
+		if (Tools[i].Category.IsEmpty())
+			Tools[i].Category = ModuleName;
+	}
 	Modules.Add(Module);
-	UE_LOG(LogUECortex, Log, TEXT("UECortex: Registered module '%s'"), *Module->GetModuleName());
+	UE_LOG(LogUECortex, Log, TEXT("UECortex: Registered module '%s'"), *ModuleName);
 }
 
 void FMCPToolRegistry::UnregisterModule(const FString& ModuleName)
@@ -138,13 +176,10 @@ bool FMCPToolRegistry::DisableTool(const FString& ToolName)
 
 bool FMCPToolRegistry::EnableCategory(const FString& CategoryName)
 {
-	// Category = module name prefix before underscore (e.g. "actor_spawn" -> "actor")
 	bool bAny = false;
 	for (FMCPToolDef& Tool : Tools)
 	{
-		FString Prefix;
-		Tool.Name.Split(TEXT("_"), &Prefix, nullptr);
-		if (Prefix.Equals(CategoryName, ESearchCase::IgnoreCase))
+		if (Tool.Category.Equals(CategoryName, ESearchCase::IgnoreCase))
 		{
 			Tool.bEnabled = true;
 			bAny = true;
@@ -158,9 +193,7 @@ bool FMCPToolRegistry::DisableCategory(const FString& CategoryName)
 	bool bAny = false;
 	for (FMCPToolDef& Tool : Tools)
 	{
-		FString Prefix;
-		Tool.Name.Split(TEXT("_"), &Prefix, nullptr);
-		if (Prefix.Equals(CategoryName, ESearchCase::IgnoreCase))
+		if (Tool.Category.Equals(CategoryName, ESearchCase::IgnoreCase))
 		{
 			Tool.bEnabled = false;
 			bAny = true;
@@ -185,6 +218,43 @@ int32 FMCPToolRegistry::GetEnabledToolCount() const
 		if (Tool.bEnabled) Count++;
 	}
 	return Count;
+}
+
+TSharedPtr<FJsonObject> FMCPToolRegistry::BuildGroupsList() const
+{
+	// Collect tools by category (skip meta / built-ins from the groups list itself)
+	TMap<FString, TArray<FString>> CategoryTools;
+	for (const FMCPToolDef& Tool : Tools)
+	{
+		if (!Tool.bEnabled || Tool.Category == TEXT("meta")) continue;
+		CategoryTools.FindOrAdd(Tool.Category).Add(Tool.Name);
+	}
+
+	// Sort categories alphabetically
+	TArray<FString> SortedCategories;
+	CategoryTools.GetKeys(SortedCategories);
+	SortedCategories.Sort();
+
+	TArray<TSharedPtr<FJsonValue>> GroupsArray;
+	for (const FString& Cat : SortedCategories)
+	{
+		TArray<FString>& ToolNames = CategoryTools[Cat];
+		ToolNames.Sort();
+
+		TArray<TSharedPtr<FJsonValue>> NamesArray;
+		for (const FString& N : ToolNames)
+			NamesArray.Add(MakeShared<FJsonValueString>(N));
+
+		auto GroupObj = MakeShared<FJsonObject>();
+		GroupObj->SetStringField(TEXT("category"), Cat);
+		GroupObj->SetNumberField(TEXT("count"), ToolNames.Num());
+		GroupObj->SetArrayField(TEXT("tools"), NamesArray);
+		GroupsArray.Add(MakeShared<FJsonValueObject>(GroupObj));
+	}
+
+	auto Result = MakeShared<FJsonObject>();
+	Result->SetArrayField(TEXT("groups"), GroupsArray);
+	return Result;
 }
 
 void FMCPToolRegistry::GetModuleStatus(TArray<FString>& OutActive, TArray<FString>& OutInactive) const

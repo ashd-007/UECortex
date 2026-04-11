@@ -18,4 +18,8 @@ private:
 	static FMCPToolResult AnimAddStateMachine(const TSharedPtr<FJsonObject>& Params);
 	static FMCPToolResult AnimAddState(const TSharedPtr<FJsonObject>& Params);
 	static FMCPToolResult AnimCompileAnimBlueprint(const TSharedPtr<FJsonObject>& Params);
+	static FMCPToolResult AnimFixSkeletonReference(const TSharedPtr<FJsonObject>& Params);
+	static FMCPToolResult AnimSetStateAnimation(const TSharedPtr<FJsonObject>& Params);
+	static FMCPToolResult AnimAddTransition(const TSharedPtr<FJsonObject>& Params);
+	static FMCPToolResult AnimSetTransitionCondition(const TSharedPtr<FJsonObject>& Params);
 };

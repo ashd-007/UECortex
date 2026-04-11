@@ -80,6 +80,12 @@ void FUECortexModule::StartupModule()
 		FModuleManager::Get().LoadModule(TEXT("UECortexPython"));
 	}
 
+	// IK Retarget tools — loaded only if IKRig plugin is present
+	if (FModuleManager::Get().IsModuleLoaded(TEXT("IKRig")))
+	{
+		FModuleManager::Get().LoadModule(TEXT("UECortexIKRetarget"));
+	}
+
 	// ── Startup summary ──────────────────────────────────────────────────────
 	{
 		TArray<FString> ActiveModules, InactiveModules;

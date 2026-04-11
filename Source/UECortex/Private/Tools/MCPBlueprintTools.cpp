@@ -28,6 +28,8 @@
 #include "Misc/PackageName.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
+#include "Engine/InheritableComponentHandler.h"
+#include "UObject/UObjectHash.h"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -390,6 +392,35 @@ void FMCPBlueprintTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 			{ TEXT("hud_class"),               TEXT("string"), TEXT("HUD class path"), false },
 		};
 		Def.Handler = [](const TSharedPtr<FJsonObject>& A) { return BlueprintAddGameMode(A); };
+		OutTools.Add(MoveTemp(Def));
+	}
+
+	// blueprint_set_cdo_property
+	{
+		FMCPToolDef Def;
+		Def.Name = TEXT("blueprint_set_cdo_property");
+		Def.Description = TEXT("Set a property directly on a Blueprint's Class Default Object (CDO). Handles the Default__ClassName_C lookup internally. Use for Blueprint-defined properties not accessible via component tools.");
+		Def.Params = {
+			{ TEXT("blueprint_path"), TEXT("string"), TEXT("Content path to the Blueprint asset") },
+			{ TEXT("property"),       TEXT("string"), TEXT("Property name on the Blueprint class") },
+			{ TEXT("value"),          TEXT("string"), TEXT("Value as string (object refs as content paths, e.g. /Game/Meshes/SK_Hero.SK_Hero)") },
+		};
+		Def.Handler = [](const TSharedPtr<FJsonObject>& A) { return BlueprintSetCDOProperty(A); };
+		OutTools.Add(MoveTemp(Def));
+	}
+
+	// blueprint_set_inherited_component_property
+	{
+		FMCPToolDef Def;
+		Def.Name = TEXT("blueprint_set_inherited_component_property");
+		Def.Description = TEXT("Set a property on an inherited component (from a parent Blueprint or C++ class) using the InheritableComponentHandler. Use for components like CharacterMesh0 that are not in this Blueprint's own SCS.");
+		Def.Params = {
+			{ TEXT("blueprint_path"),  TEXT("string"), TEXT("Content path to the Blueprint asset") },
+			{ TEXT("component_name"),  TEXT("string"), TEXT("Component variable name, e.g. 'CharacterMesh0' or 'CapsuleComponent'") },
+			{ TEXT("property"),        TEXT("string"), TEXT("Property name on the component, e.g. 'SkeletalMesh', 'AnimClass'") },
+			{ TEXT("value"),           TEXT("string"), TEXT("Value as string (object refs as content paths)") },
+		};
+		Def.Handler = [](const TSharedPtr<FJsonObject>& A) { return BlueprintSetInheritedComponentProperty(A); };
 		OutTools.Add(MoveTemp(Def));
 	}
 }
@@ -1091,4 +1122,146 @@ FMCPToolResult FMCPBlueprintTools::BlueprintAddGameMode(const TSharedPtr<FJsonOb
 	return FMCPToolResult::Success(FString::Printf(
 		TEXT("Created GameMode '%s' — set: %s"),
 		*BPPath, SetFields.Num() > 0 ? *FString::Join(SetFields, TEXT(", ")) : TEXT("defaults")));
+}
+
+// ---------------------------------------------------------------------------
+// blueprint_set_cdo_property
+// ---------------------------------------------------------------------------
+
+FMCPToolResult FMCPBlueprintTools::BlueprintSetCDOProperty(const TSharedPtr<FJsonObject>& Args)
+{
+	FString BPPath, PropName, Value;
+	if (!Args->TryGetStringField(TEXT("blueprint_path"), BPPath))
+		return FMCPToolResult::Error(TEXT("Missing: blueprint_path"));
+	if (!Args->TryGetStringField(TEXT("property"), PropName))
+		return FMCPToolResult::Error(TEXT("Missing: property"));
+	if (!Args->TryGetStringField(TEXT("value"), Value))
+		return FMCPToolResult::Error(TEXT("Missing: value"));
+
+	UBlueprint* BP = LoadBP(BPPath);
+	if (!BP)
+		return FMCPToolResult::Error(FString::Printf(TEXT("Blueprint not found: %s"), *BPPath));
+
+	if (!BP->GeneratedClass)
+		FKismetEditorUtilities::CompileBlueprint(BP);
+	if (!BP->GeneratedClass)
+		return FMCPToolResult::Error(TEXT("Blueprint has no generated class — compile failed"));
+
+	UObject* CDO = BP->GeneratedClass->GetDefaultObject(false);
+	if (!CDO)
+		return FMCPToolResult::Error(TEXT("CDO unavailable — try compiling the blueprint first"));
+
+	FProperty* Prop = FindFProperty<FProperty>(BP->GeneratedClass, *PropName);
+	if (!Prop)
+		return FMCPToolResult::Error(FString::Printf(
+			TEXT("Property '%s' not found on blueprint class '%s'"), *PropName, *BP->GeneratedClass->GetName()));
+
+	void* PropAddr = Prop->ContainerPtrToValuePtr<void>(CDO);
+	if (!Prop->ImportText_Direct(*Value, PropAddr, CDO, PPF_None))
+		return FMCPToolResult::Error(FString::Printf(
+			TEXT("Failed to import value '%s' into property '%s'"), *Value, *PropName));
+
+	FBlueprintEditorUtils::MarkBlueprintAsModified(BP);
+	BP->GetOutermost()->MarkPackageDirty();
+
+	return FMCPToolResult::Success(FString::Printf(
+		TEXT("Set CDO property '%s.%s = %s'"), *BP->GetName(), *PropName, *Value));
+}
+
+// ---------------------------------------------------------------------------
+// blueprint_set_inherited_component_property
+// ---------------------------------------------------------------------------
+
+FMCPToolResult FMCPBlueprintTools::BlueprintSetInheritedComponentProperty(const TSharedPtr<FJsonObject>& Args)
+{
+	FString BPPath, CompName, PropName, Value;
+	if (!Args->TryGetStringField(TEXT("blueprint_path"), BPPath))
+		return FMCPToolResult::Error(TEXT("Missing: blueprint_path"));
+	if (!Args->TryGetStringField(TEXT("component_name"), CompName))
+		return FMCPToolResult::Error(TEXT("Missing: component_name"));
+	if (!Args->TryGetStringField(TEXT("property"), PropName))
+		return FMCPToolResult::Error(TEXT("Missing: property"));
+	if (!Args->TryGetStringField(TEXT("value"), Value))
+		return FMCPToolResult::Error(TEXT("Missing: value"));
+
+	UBlueprint* BP = LoadBP(BPPath);
+	if (!BP)
+		return FMCPToolResult::Error(FString::Printf(TEXT("Blueprint not found: %s"), *BPPath));
+
+	if (!BP->GeneratedClass)
+		FKismetEditorUtilities::CompileBlueprint(BP);
+	if (!BP->GeneratedClass)
+		return FMCPToolResult::Error(TEXT("Blueprint has no generated class — compile failed"));
+
+	auto ApplyProperty = [&](UActorComponent* Template) -> FMCPToolResult
+	{
+		FProperty* Prop = FindFProperty<FProperty>(Template->GetClass(), *PropName);
+		if (!Prop)
+			return FMCPToolResult::Error(FString::Printf(
+				TEXT("Property '%s' not found on component class '%s'"), *PropName, *Template->GetClass()->GetName()));
+		void* Addr = Prop->ContainerPtrToValuePtr<void>(Template);
+		if (!Prop->ImportText_Direct(*Value, Addr, Template, PPF_None))
+			return FMCPToolResult::Error(FString::Printf(
+				TEXT("Failed to import value '%s' into '%s'"), *Value, *PropName));
+		Template->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(BP);
+		return FMCPToolResult::Success(FString::Printf(
+			TEXT("Set '%s.%s = %s'"), *CompName, *PropName, *Value));
+	};
+
+	// ── Strategy 1: SCS node from a parent Blueprint class ───────────────────
+	{
+		USCS_Node* TargetNode = nullptr;
+		UClass* SearchClass = BP->ParentClass;
+		while (SearchClass && !TargetNode)
+		{
+			UBlueprintGeneratedClass* ParentBPGC = Cast<UBlueprintGeneratedClass>(SearchClass);
+			if (ParentBPGC && ParentBPGC->SimpleConstructionScript)
+			{
+				for (USCS_Node* Node : ParentBPGC->SimpleConstructionScript->GetAllNodes())
+				{
+					if (Node && Node->GetVariableName().ToString().Equals(CompName, ESearchCase::IgnoreCase))
+					{
+						TargetNode = Node;
+						break;
+					}
+				}
+			}
+			SearchClass = SearchClass->GetSuperClass();
+		}
+
+		if (TargetNode)
+		{
+			UInheritableComponentHandler* ICH = BP->GetInheritableComponentHandler(true);
+			if (ICH)
+			{
+				FComponentKey Key(TargetNode);
+				UActorComponent* Template = ICH->GetOverridenComponentTemplate(Key);
+				if (!Template)
+					Template = ICH->CreateOverridenComponentTemplate(Key);
+				if (Template)
+					return ApplyProperty(Template);
+			}
+		}
+	}
+
+	// ── Strategy 2: Native component via CDO subobject ────────────────────────
+	{
+		UObject* CDO = BP->GeneratedClass->GetDefaultObject(false);
+		if (CDO)
+		{
+			TArray<UObject*> SubObjects;
+			GetObjectsWithOuter(CDO, SubObjects, false);
+			for (UObject* SubObj : SubObjects)
+			{
+				UActorComponent* Comp = Cast<UActorComponent>(SubObj);
+				if (Comp && Comp->GetName().Equals(CompName, ESearchCase::IgnoreCase))
+					return ApplyProperty(Comp);
+			}
+		}
+	}
+
+	return FMCPToolResult::Error(FString::Printf(
+		TEXT("Component '%s' not found in parent class hierarchy. For components in this Blueprint's own SCS, use blueprint_set_component_property instead."),
+		*CompName));
 }

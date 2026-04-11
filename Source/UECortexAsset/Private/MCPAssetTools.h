@@ -18,4 +18,5 @@ private:
 	static FMCPToolResult AssetCreateFolder(const TSharedPtr<FJsonObject>& Params);
 	static FMCPToolResult AssetListRedirectors(const TSharedPtr<FJsonObject>& Params);
 	static FMCPToolResult AssetFixRedirectors(const TSharedPtr<FJsonObject>& Params);
+	static FMCPToolResult AssetMigrate(const TSharedPtr<FJsonObject>& Params);
 };

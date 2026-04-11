@@ -9,6 +9,7 @@
 #include "Misc/PackageName.h"
 #include "HAL/FileManager.h"
 #include "Dom/JsonObject.h"
+#include "FileHelpers.h"
 
 // ---------------------------------------------------------------------------
 // NOTE: HTTP handlers are called from the game thread tick (FHttpServerModule::ProcessRequests).
@@ -128,6 +129,17 @@ void FMCPAssetTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 			{ TEXT("recursive"), TEXT("boolean"), TEXT("Fix recursively (default true)"), false },
 		};
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return AssetFixRedirectors(P); };
+		OutTools.Add(T);
+	}
+	{
+		FMCPToolDef T;
+		T.Name = TEXT("asset_migrate");
+		T.Description = TEXT("Copy an asset and all its transitive /Game/ dependencies to a destination folder, preserving path structure. Equivalent to Content Browser → Migrate.");
+		T.Params = {
+			{ TEXT("source_path"), TEXT("string"), TEXT("Content path of the asset to migrate, e.g. /Game/Characters/SK_Hero"), true },
+			{ TEXT("dest_folder"), TEXT("string"), TEXT("Destination folder, e.g. /Game/Imported. Path structure under /Game/ is preserved."), true },
+		};
+		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return AssetMigrate(P); };
 		OutTools.Add(T);
 	}
 }
@@ -532,4 +544,97 @@ FMCPToolResult FMCPAssetTools::AssetFixRedirectors(const TSharedPtr<FJsonObject>
 
 	return FMCPToolResult::Success(
 		FString::Printf(TEXT("Fixed %d redirectors under '%s'"), Redirectors.Num(), *Path));
+}
+
+// ---------------------------------------------------------------------------
+// asset_migrate
+// ---------------------------------------------------------------------------
+
+static void CollectMigrateDeps(const FName& PackageName, TSet<FName>& OutPackages, IAssetRegistry& AssetRegistry)
+{
+	if (OutPackages.Contains(PackageName)) return;
+	if (!PackageName.ToString().StartsWith(TEXT("/Game/"))) return;
+	OutPackages.Add(PackageName);
+
+	TArray<FName> Deps;
+	AssetRegistry.GetDependencies(PackageName, Deps, UE::AssetRegistry::EDependencyCategory::Package);
+	for (const FName& Dep : Deps)
+		CollectMigrateDeps(Dep, OutPackages, AssetRegistry);
+}
+
+FMCPToolResult FMCPAssetTools::AssetMigrate(const TSharedPtr<FJsonObject>& Params)
+{
+	FString SourcePath, DestFolder;
+	if (!Params->TryGetStringField(TEXT("source_path"), SourcePath))
+		return FMCPToolResult::Error(TEXT("Missing: source_path"));
+	if (!Params->TryGetStringField(TEXT("dest_folder"), DestFolder))
+		return FMCPToolResult::Error(TEXT("Missing: dest_folder"));
+
+	// Normalize: strip trailing slash, strip asset name if present (e.g. /Game/X.X → /Game/X)
+	DestFolder = DestFolder.TrimEnd().TrimChar('/');
+	FString SrcPackageStr = SourcePath;
+	int32 DotIdx;
+	if (SrcPackageStr.FindLastChar('.', DotIdx))
+		SrcPackageStr = SrcPackageStr.Left(DotIdx);
+
+	// Recursively collect all /Game/ dependencies
+	TSet<FName> AllPackages;
+	CollectMigrateDeps(FName(*SrcPackageStr), AllPackages, AR());
+
+	if (AllPackages.IsEmpty())
+		return FMCPToolResult::Error(FString::Printf(
+			TEXT("Source asset not found or is not a /Game/ asset: %s"), *SourcePath));
+
+	int32 Copied = 0;
+	TArray<FString> Skipped;
+
+	for (const FName& PkgName : AllPackages)
+	{
+		FString PkgStr    = PkgName.ToString();                              // /Game/X/Y
+		FString AssetName = FPackageName::GetLongPackageAssetName(PkgStr);  // Y
+		FString RelPath   = PkgStr.Mid(6);                                  // strip "/Game/"
+		FString DestPkg   = DestFolder + TEXT("/") + RelPath;               // /Game/Imported/X/Y
+
+		// Skip if already exists at destination
+		FARFilter ExistFilter;
+		ExistFilter.PackageNames.Add(FName(*DestPkg));
+		TArray<FAssetData> Existing;
+		AR().GetAssets(ExistFilter, Existing);
+		if (Existing.Num() > 0)
+		{
+			Skipped.Add(AssetName + TEXT(" (exists)"));
+			continue;
+		}
+
+		// Load source asset
+		UObject* Asset = LoadObject<UObject>(nullptr, *(PkgStr + TEXT(".") + AssetName));
+		if (!Asset)
+		{
+			Skipped.Add(AssetName + TEXT(" (load failed)"));
+			continue;
+		}
+
+		// Duplicate to destination
+		FString DestPkgFolder = FPackageName::GetLongPackagePath(DestPkg);
+		UObject* Dup = AT().DuplicateAsset(AssetName, DestPkgFolder, Asset);
+		if (Dup)
+		{
+			Dup->GetOutermost()->MarkPackageDirty();
+			Copied++;
+		}
+		else
+		{
+			Skipped.Add(AssetName + TEXT(" (duplicate failed)"));
+		}
+	}
+
+	FEditorFileUtils::SaveDirtyPackages(false, true, true, false, false, false);
+
+	FString SkippedStr;
+	if (Skipped.Num() > 0)
+		SkippedStr = FString::Printf(TEXT("\nSkipped (%d): %s"), Skipped.Num(), *FString::Join(Skipped, TEXT(", ")));
+
+	return FMCPToolResult::Success(FString::Printf(
+		TEXT("Migrated %d / %d assets to '%s'%s"),
+		Copied, AllPackages.Num(), *DestFolder, *SkippedStr));
 }

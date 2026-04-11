@@ -71,6 +71,7 @@ struct FMCPToolDef
 {
 	FString Name;
 	FString Description;
+	FString Category;   // module/group label — auto-populated from module name if empty
 	TArray<FMCPParamSchema> Params;
 	TFunction<FMCPToolResult(const TSharedPtr<FJsonObject>&)> Handler;
 	bool bEnabled = true;

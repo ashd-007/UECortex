@@ -30,6 +30,8 @@ private:
 	static FMCPToolResult BlueprintSetNodeProperty(const TSharedPtr<FJsonObject>& Args);
 	static FMCPToolResult BlueprintCreateInputAction(const TSharedPtr<FJsonObject>& Args);
 	static FMCPToolResult BlueprintAddGameMode(const TSharedPtr<FJsonObject>& Args);
+	static FMCPToolResult BlueprintSetCDOProperty(const TSharedPtr<FJsonObject>& Args);
+	static FMCPToolResult BlueprintSetInheritedComponentProperty(const TSharedPtr<FJsonObject>& Args);
 
 	// Internal helpers
 	static UBlueprint*    LoadBP(const FString& Path);
