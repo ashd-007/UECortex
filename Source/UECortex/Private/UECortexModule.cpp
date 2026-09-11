@@ -112,14 +112,14 @@ void FUECortexModule::StartupModule()
 		for (const FString& M : InactiveModules)
 			UE_LOG(LogUECortex, Log, TEXT("│  [OFF] %-33s │"), *M);
 		UE_LOG(LogUECortex, Log, TEXT("├─────────────────────────────────────────┤"));
-		UE_LOG(LogUECortex, Log, TEXT("│  http://localhost:7777/mcp               │"));
+		UE_LOG(LogUECortex, Log, TEXT("│  http://localhost:8737/mcp               │"));
 		UE_LOG(LogUECortex, Log, TEXT("│  GET  /health  — status + tool count     │"));
 		UE_LOG(LogUECortex, Log, TEXT("│  POST /mcp     — JSON-RPC 2.0            │"));
 		UE_LOG(LogUECortex, Log, TEXT("└─────────────────────────────────────────┘"));
 	}
 
 	// Start HTTP server — AFTER all tools are registered
-	HttpServer = MakeUnique<FMCPHttpServer>(7777);
+	HttpServer = MakeUnique<FMCPHttpServer>(8737);
 	HttpServer->Start();
 }
 

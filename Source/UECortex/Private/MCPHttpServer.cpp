@@ -51,7 +51,7 @@ void FMCPHttpServer::Start()
 		EHttpServerRequestVerbs::VERB_OPTIONS,
 		FHttpRequestHandler::CreateLambda([](const FHttpServerRequest& Req, const FHttpResultCallback& OnComplete)
 		{
-			auto Response = FHttpServerResponse::Create(TEXT(""), TEXT("text/plain"));
+			auto Response = FHttpServerResponse::Create(FString(TEXT("")), TEXT("text/plain"));
 			Response->Code = EHttpServerResponseCodes::Ok;
 			Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
 			Response->Headers.Add(TEXT("Access-Control-Allow-Methods"), {TEXT("POST, GET, OPTIONS")});
@@ -90,7 +90,7 @@ bool FMCPHttpServer::HandlePost(const FHttpServerRequest& Request, const FHttpRe
 		// Empty = notification with no response (e.g. notifications/initialized)
 		if (ResponseBody.IsEmpty())
 		{
-			auto Response = FHttpServerResponse::Create(TEXT(""), TEXT("application/json"));
+			auto Response = FHttpServerResponse::Create(FString(TEXT("")), TEXT("application/json"));
 			Response->Code = EHttpServerResponseCodes::NoContent;
 			Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
 			OnComplete(MoveTemp(Response));
@@ -156,7 +156,7 @@ bool FMCPHttpServer::HandleHealth(const FHttpServerRequest& Request, const FHttp
 
 		// MCP connection instructions
 		HealthObj->SetStringField(TEXT("claude_code_add"),
-			TEXT("claude mcp add unrealcortex --transport http http://localhost:7777/mcp"));
+			TEXT("claude mcp add unrealcortex --transport http http://localhost:8737/mcp"));
 
 		FString JsonOut;
 		TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonOut);

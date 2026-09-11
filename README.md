@@ -25,22 +25,22 @@ Reopen the project. The server starts automatically on editor launch.
 
 **Claude Code:**
 ```bash
-claude mcp add uecortex --transport http http://localhost:7777/mcp
+claude mcp add uecortex --transport http http://localhost:8737/mcp
 ```
 
 **VS Code** (`.vscode/mcp.json`):
 ```json
-{ "servers": { "uecortex": { "url": "http://localhost:7777/mcp" } } }
+{ "servers": { "uecortex": { "url": "http://localhost:8737/mcp" } } }
 ```
 
 **Claude Desktop** (`claude_desktop_config.json`):
 ```json
-{ "mcpServers": { "uecortex": { "url": "http://localhost:7777/mcp" } } }
+{ "mcpServers": { "uecortex": { "url": "http://localhost:8737/mcp" } } }
 ```
 
 **Health check:**
 ```
-GET http://localhost:7777/health
+GET http://localhost:8737/health
 ```
 
 ---
@@ -414,7 +414,7 @@ All other categories load unconditionally.
 
 ## Architecture
 
-- **Transport:** HTTP + SSE on `localhost:7777`
+- **Transport:** HTTP + SSE on `localhost:8737`
 - **Protocol:** MCP 2024-11-05 / JSON-RPC 2.0
 - **Engine version:** UE 5.6+ (5.7 compatible)
 - **Module type:** Editor plugin, `PostEngineInit`

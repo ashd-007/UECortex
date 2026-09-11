@@ -8,7 +8,7 @@
 class UECORTEX_API FMCPHttpServer
 {
 public:
-	explicit FMCPHttpServer(uint32 Port = 7777);
+	explicit FMCPHttpServer(uint32 Port = 8737);
 	~FMCPHttpServer();
 
 	void Start();
