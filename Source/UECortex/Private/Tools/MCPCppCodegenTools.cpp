@@ -920,14 +920,29 @@ FMCPToolResult FMCPCppCodegenTools::CppRunUBT(const TSharedPtr<FJsonObject>& Arg
 
 	FString ProjectName  = FApp::GetProjectName();
 	FString ProjectFile  = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
-	FString BatchFile    = FPaths::ConvertRelativePathToFull(
-		FPaths::Combine(FPaths::EngineDir(), TEXT("Build/BatchFiles/Build.bat")));
+
+	// Build.bat/Build.sh live in a platform-specific subfolder (or not, on Windows), and the target
+	// platform name passed to UBT is likewise host-specific -- this previously hardcoded the
+	// Windows-only Build.bat/Win64 pair, so this tool silently couldn't work on Mac/Linux at all.
+#if PLATFORM_MAC
+	static const TCHAR* BatchFileRelPath = TEXT("Build/BatchFiles/Mac/Build.sh");
+	static const TCHAR* TargetPlatform   = TEXT("Mac");
+#elif PLATFORM_LINUX
+	static const TCHAR* BatchFileRelPath = TEXT("Build/BatchFiles/Linux/Build.sh");
+	static const TCHAR* TargetPlatform   = TEXT("Linux");
+#else
+	static const TCHAR* BatchFileRelPath = TEXT("Build/BatchFiles/Build.bat");
+	static const TCHAR* TargetPlatform   = TEXT("Win64");
+#endif
+
+	FString BatchFile = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(FPaths::EngineDir(), BatchFileRelPath));
 
 	if (!FPlatformFileManager::Get().GetPlatformFile().FileExists(*BatchFile))
-		return FMCPToolResult::Error(FString::Printf(TEXT("Build.bat not found: %s"), *BatchFile));
+		return FMCPToolResult::Error(FString::Printf(TEXT("Build script not found: %s"), *BatchFile));
 
-	FString Args_UBT = FString::Printf(TEXT("%sEditor Win64 %s \"%s\" -WaitMutex -FromMsBuild"),
-		*ProjectName, *Config, *ProjectFile);
+	FString Args_UBT = FString::Printf(TEXT("%sEditor %s %s \"%s\" -WaitMutex -FromMsBuild"),
+		*ProjectName, TargetPlatform, *Config, *ProjectFile);
 
 	uint32 ProcId = 0;
 	FProcHandle Proc = FPlatformProcess::CreateProc(
