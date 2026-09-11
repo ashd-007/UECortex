@@ -24,6 +24,29 @@ public:
 		return FModuleManager::LoadModuleChecked<FUECortexModule>("UECortex");
 	}
 
+	/// The world every MCP tool should operate against: the editor world normally, but the live
+	/// PIE world while a Play session is active. Every tool previously re-resolved
+	/// GEditor->GetEditorWorldContext().World() independently, which is always the editor world
+	/// and never updates when Play starts -- this single tracked pointer (kept current via
+	/// OnWorldPostInitialization/OnWorldCleanup, mirroring the GameDriver plugin's own
+	/// ChangeWorld pattern) is the fix. Falls back to the editor world context if nothing has
+	/// been tracked yet (e.g. tool called before any world init delegate has fired).
+	static UWorld* GetActiveWorld()
+	{
+		FUECortexModule& Module = Get();
+		if (Module.TrackedWorld)
+		{
+			return Module.TrackedWorld;
+		}
+		return GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	}
+
 private:
+	void OnWorldPostInitialization(UWorld* World, const UWorld::InitializationValues IVS);
+	void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources);
+
 	TUniquePtr<FMCPHttpServer> HttpServer;
+	UWorld* TrackedWorld = nullptr;
+	FDelegateHandle OnWorldPostInitHandle;
+	FDelegateHandle OnWorldCleanupHandle;
 };

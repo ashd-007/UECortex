@@ -1,4 +1,5 @@
 #include "Tools/MCPBlueprintTools.h"
+#include "UECortexModule.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/SimpleConstructionScript.h"
@@ -859,7 +860,7 @@ FMCPToolResult FMCPBlueprintTools::BlueprintSpawnInLevel(const TSharedPtr<FJsonO
 	if (!BP || !BP->GeneratedClass)
 		return FMCPToolResult::Error(FString::Printf(TEXT("Blueprint not found or not compiled: %s"), *BPPath));
 
-	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	UWorld* World = FUECortexModule::GetActiveWorld();
 	if (!World) return FMCPToolResult::Error(TEXT("No editor world"));
 
 	FVector Location  = FVector::ZeroVector;

@@ -1,4 +1,5 @@
 #include "Tools/MCPSplineTools.h"
+#include "UECortexModule.h"
 #include "Engine/World.h"
 #include "Editor.h"
 #include "EngineUtils.h"
@@ -13,7 +14,7 @@
 
 static UWorld* GetEditorWorldS()
 {
-	return GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	return FUECortexModule::GetActiveWorld();
 }
 
 static AActor* FindActorByLabelS(UWorld* World, const FString& Label)

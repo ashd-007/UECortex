@@ -21,7 +21,7 @@
 
 static UWorld* GetEditorWorld()
 {
-	return GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	return FUECortexModule::GetActiveWorld();
 }
 
 static AActor* FindActorByLabel(UWorld* World, const FString& Label)

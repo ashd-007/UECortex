@@ -1,4 +1,5 @@
 #include "Tools/MCPLevelTools.h"
+#include "UECortexModule.h"
 #include "Engine/World.h"
 #include "Engine/StaticMeshActor.h"
 #include "GameFramework/Actor.h"
@@ -222,11 +223,10 @@ void FMCPLevelTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 
 static UWorld* GetEditorWorld()
 {
-	if (GEditor)
-	{
-		return GEditor->GetEditorWorldContext().World();
-	}
-	return nullptr;
+	// Despite the name (kept to avoid touching every call site), this returns the tracked
+	// active world -- the editor world normally, the live PIE world while Play is running. See
+	// FUECortexModule::GetActiveWorld().
+	return FUECortexModule::GetActiveWorld();
 }
 
 static AActor* FindActorByLabel(const FString& Label)
@@ -606,7 +606,7 @@ FMCPToolResult FMCPLevelTools::ConsoleCommand(const TSharedPtr<FJsonObject>& Arg
 
 	if (GEditor)
 	{
-		GEditor->Exec(GEditor->GetEditorWorldContext().World(), *Command);
+		GEditor->Exec(FUECortexModule::GetActiveWorld(), *Command);
 	}
 
 	return FMCPToolResult::Success(

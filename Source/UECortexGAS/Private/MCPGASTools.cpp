@@ -1,5 +1,6 @@
 #include "MCPGASTools.h"
 #include "MCPToolBase.h"
+#include "UECortexModule.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "EngineUtils.h"
@@ -18,9 +19,7 @@
 
 static UWorld* GetEditorWorld()
 {
-	if (GEditor && GEditor->GetEditorWorldContext().World())
-		return GEditor->GetEditorWorldContext().World();
-	return nullptr;
+	return FUECortexModule::GetActiveWorld();
 }
 
 static AActor* FindActorByName(UWorld* World, const FString& Name)

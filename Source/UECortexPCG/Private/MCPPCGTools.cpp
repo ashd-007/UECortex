@@ -43,7 +43,7 @@ UPCGNode* FMCPPCGTools::FindNodeByName(UPCGGraph* Graph, const FString& Name)
 
 static UWorld* GetEditorWorldPCG()
 {
-	return GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	return FUECortexModule::GetActiveWorld();
 }
 
 static AActor* FindActorPCG(UWorld* World, const FString& Label)

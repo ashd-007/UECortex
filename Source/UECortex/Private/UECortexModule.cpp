@@ -20,6 +20,15 @@ void FUECortexModule::StartupModule()
 {
 	UE_LOG(LogUECortex, Log, TEXT("UECortex: Starting up"));
 
+	// Keep TrackedWorld current across editor <-> PIE transitions (mirrors the GameDriver
+	// plugin's own ChangeWorld pattern) -- without this, every tool that resolves "the current
+	// world" independently (see GetActiveWorld()) stays stuck on the editor world forever, even
+	// while a Play session is actually running.
+	OnWorldPostInitHandle = FWorldDelegates::OnPostWorldInitialization.AddRaw(
+		this, &FUECortexModule::OnWorldPostInitialization);
+	OnWorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddRaw(
+		this, &FUECortexModule::OnWorldCleanup);
+
 	auto& Registry = FMCPToolRegistry::Get();
 
 	// --- Core tool modules — always registered ---
@@ -116,12 +125,34 @@ void FUECortexModule::StartupModule()
 
 void FUECortexModule::ShutdownModule()
 {
+	FWorldDelegates::OnPostWorldInitialization.Remove(OnWorldPostInitHandle);
+	FWorldDelegates::OnWorldCleanup.Remove(OnWorldCleanupHandle);
+
 	if (HttpServer)
 	{
 		HttpServer->Stop();
 		HttpServer.Reset();
 	}
 	UE_LOG(LogUECortex, Log, TEXT("UECortex: Shutdown complete"));
+}
+
+void FUECortexModule::OnWorldPostInitialization(UWorld* World, const UWorld::InitializationValues)
+{
+	if (World)
+	{
+		TrackedWorld = World;
+	}
+}
+
+void FUECortexModule::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
+{
+	// Only fall back to the editor world if the world actually being torn down is the one we
+	// were tracking (e.g. a PIE session ending) -- an unrelated world's cleanup shouldn't steal
+	// focus away from whatever world is genuinely still current.
+	if (World == TrackedWorld)
+	{
+		TrackedWorld = (GEditor ? GEditor->EditorWorld : nullptr);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

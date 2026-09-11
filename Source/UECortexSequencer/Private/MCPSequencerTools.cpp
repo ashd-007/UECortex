@@ -1,5 +1,6 @@
 #include "MCPSequencerTools.h"
 #include "MCPToolRegistry.h"
+#include "UECortexModule.h"
 
 #include "LevelSequence.h"
 #include "MovieScene.h"
@@ -309,7 +310,7 @@ FMCPToolResult FMCPSequencerTools::SeqAddActorBinding(const TSharedPtr<FJsonObje
 	ULevelSequence* Seq = LoadSeq(SeqPath);
 	if (!Seq) return FMCPToolResult::Error(FString::Printf(TEXT("Sequence not found: %s"), *SeqPath));
 
-	UWorld* World = GEditor->GetEditorWorldContext().World();
+	UWorld* World = FUECortexModule::GetActiveWorld();
 	if (!World) return FMCPToolResult::Error(TEXT("No editor world"));
 
 	AActor* FoundActor = nullptr;
