@@ -20,10 +20,9 @@ void FUECortexModule::StartupModule()
 {
 	UE_LOG(LogUECortex, Log, TEXT("UECortex: Starting up"));
 
-	// Keep TrackedWorld current across editor <-> PIE transitions (mirrors the GameDriver
-	// plugin's own ChangeWorld pattern) -- without this, every tool that resolves "the current
-	// world" independently (see GetActiveWorld()) stays stuck on the editor world forever, even
-	// while a Play session is actually running.
+	// Keep TrackedWorld current across editor <-> PIE transitions -- without this, every tool
+	// that resolves "the current world" independently (see GetActiveWorld()) stays stuck on the
+	// editor world forever, even while a Play session is actually running.
 	OnWorldPostInitHandle = FWorldDelegates::OnPostWorldInitialization.AddRaw(
 		this, &FUECortexModule::OnWorldPostInitialization);
 	OnWorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddRaw(

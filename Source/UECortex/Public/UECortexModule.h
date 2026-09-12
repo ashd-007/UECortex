@@ -28,8 +28,7 @@ public:
 	/// PIE world while a Play session is active. Every tool previously re-resolved
 	/// GEditor->GetEditorWorldContext().World() independently, which is always the editor world
 	/// and never updates when Play starts -- this single tracked pointer (kept current via
-	/// OnWorldPostInitialization/OnWorldCleanup, mirroring the GameDriver plugin's own
-	/// ChangeWorld pattern) is the fix. Falls back to the editor world context if nothing has
+	/// OnWorldPostInitialization/OnWorldCleanup) is the fix. Falls back to the editor world context if nothing has
 	/// been tracked yet (e.g. tool called before any world init delegate has fired).
 	static UWorld* GetActiveWorld()
 	{
