@@ -132,6 +132,11 @@ static FEdGraphPinType MakePinType(const FString& TypeStr)
 		PT.PinCategory  = UEdGraphSchema_K2::PC_Struct;
 		PT.PinSubCategoryObject = TBaseStructure<FRotator>::Get();
 	}
+	else if (T == TEXT("color") || T == TEXT("linearcolor"))
+	{
+		PT.PinCategory  = UEdGraphSchema_K2::PC_Struct;
+		PT.PinSubCategoryObject = TBaseStructure<FLinearColor>::Get();
+	}
 	else if (T == TEXT("transform"))
 	{
 		PT.PinCategory  = UEdGraphSchema_K2::PC_Struct;
@@ -209,10 +214,11 @@ void FMCPBlueprintTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 		Def.Name = TEXT("blueprint_add_variable");
 		Def.Description = TEXT("Add a new Blueprint variable with the given type.");
 		Def.Params = {
-			{ TEXT("blueprint_path"), TEXT("string"), TEXT("Blueprint asset path") },
-			{ TEXT("name"),           TEXT("string"), TEXT("Variable name") },
-			{ TEXT("type"),           TEXT("string"), TEXT("Type: bool/int/float/string/name/vector/rotator/transform/actor/object") },
-			{ TEXT("default_value"),  TEXT("string"), TEXT("Default value as string"), false },
+			{ TEXT("blueprint_path"), TEXT("string"),  TEXT("Blueprint asset path") },
+			{ TEXT("name"),           TEXT("string"),  TEXT("Variable name") },
+			{ TEXT("type"),           TEXT("string"),  TEXT("Type: bool/int/float/string/name/vector/rotator/transform/color/actor/object") },
+			{ TEXT("default_value"),  TEXT("string"),  TEXT("Default value as string"), false },
+			{ TEXT("is_array"),       TEXT("boolean"), TEXT("If true, makes the variable a TArray of the given type instead of a scalar"), false },
 		};
 		Def.Handler = [](const TSharedPtr<FJsonObject>& A) { return BlueprintAddVariable(A); };
 		OutTools.Add(MoveTemp(Def));
@@ -559,6 +565,10 @@ FMCPToolResult FMCPBlueprintTools::BlueprintAddVariable(const TSharedPtr<FJsonOb
 	if (!BP) return FMCPToolResult::Error(FString::Printf(TEXT("Blueprint not found: %s"), *BPPath));
 
 	FEdGraphPinType PinType = MakePinType(TypeStr);
+	bool bIsArray = false;
+	Args->TryGetBoolField(TEXT("is_array"), bIsArray);
+	if (bIsArray)
+		PinType.ContainerType = EPinContainerType::Array;
 	FBlueprintEditorUtils::AddMemberVariable(BP, FName(*VarName), PinType);
 
 	// Set default value if provided
@@ -572,7 +582,7 @@ FMCPToolResult FMCPBlueprintTools::BlueprintAddVariable(const TSharedPtr<FJsonOb
 	FBlueprintEditorUtils::MarkBlueprintAsModified(BP);
 
 	return FMCPToolResult::Success(FString::Printf(
-		TEXT("Added variable '%s' (%s) to '%s'"), *VarName, *TypeStr, *BPPath));
+		TEXT("Added variable '%s' (%s%s) to '%s'"), *VarName, bIsArray ? TEXT("array of ") : TEXT(""), *TypeStr, *BPPath));
 }
 
 FMCPToolResult FMCPBlueprintTools::BlueprintSetVariable(const TSharedPtr<FJsonObject>& Args)
