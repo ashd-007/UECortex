@@ -416,7 +416,7 @@ All other categories load unconditionally.
 
 - **Transport:** HTTP + SSE on `localhost:8737`
 - **Protocol:** MCP 2024-11-05 / JSON-RPC 2.0
-- **Engine version:** UE 5.6+ (5.7 compatible)
+- **Engine version:** UE 5.4–5.8 (confirmed building and running across the full 5.4/5.7/5.8 range)
 - **Module type:** Editor plugin, `PostEngineInit`
 - **Threading:** HTTP handlers run on the game thread tick — all UE API calls are direct, no `AsyncTask` wrappers
 
