@@ -119,14 +119,16 @@ void FMCPPythonTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 	{
 		FMCPToolDef T;
 		T.Name = TEXT("python_exec");
-		T.Description = TEXT("Execute Python code in the UE Python environment. Params: code (string). Returns stdout + result. Use 'import unreal' to access UE APIs.");
+		T.Description = TEXT("Execute Python code in the UE Python environment. Returns stdout + result. Use 'import unreal' to access UE APIs.");
+		T.Params.Add(FMCPParamSchema(TEXT("code"), TEXT("string"), TEXT("Python source code to execute"), true));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonExec(P); };
 		OutTools.Add(T);
 	}
 	{
 		FMCPToolDef T;
 		T.Name = TEXT("python_exec_file");
-		T.Description = TEXT("Execute a Python file. Params: file_path (string — absolute or relative to project dir).");
+		T.Description = TEXT("Execute a Python file in the UE Python environment.");
+		T.Params.Add(FMCPParamSchema(TEXT("file_path"), TEXT("string"), TEXT("Absolute or project-relative path to the Python file to execute"), true));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonExecFile(P); };
 		OutTools.Add(T);
 	}
@@ -140,21 +142,25 @@ void FMCPPythonTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 	{
 		FMCPToolDef T;
 		T.Name = TEXT("python_set_var");
-		T.Description = TEXT("Set a global Python variable. Params: name (string), value (string — any Python literal or expression).");
+		T.Description = TEXT("Set a global Python variable.");
+		T.Params.Add(FMCPParamSchema(TEXT("name"),  TEXT("string"), TEXT("Variable name"), true));
+		T.Params.Add(FMCPParamSchema(TEXT("value"), TEXT("string"), TEXT("Any Python literal or expression"), true));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonSetVar(P); };
 		OutTools.Add(T);
 	}
 	{
 		FMCPToolDef T;
 		T.Name = TEXT("python_get_var");
-		T.Description = TEXT("Get the string representation of a global Python variable. Params: name (string).");
+		T.Description = TEXT("Get the string representation of a global Python variable.");
+		T.Params.Add(FMCPParamSchema(TEXT("name"), TEXT("string"), TEXT("Variable name"), true));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonGetVar(P); };
 		OutTools.Add(T);
 	}
 	{
 		FMCPToolDef T;
 		T.Name = TEXT("python_list_scripts");
-		T.Description = TEXT("List .py files in a directory. Params: path (string, default: project dir).");
+		T.Description = TEXT("List .py files in a directory.");
+		T.Params.Add(FMCPParamSchema(TEXT("path"), TEXT("string"), TEXT("Directory to list (default: project dir)"), false));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonListScripts(P); };
 		OutTools.Add(T);
 	}
@@ -163,15 +169,18 @@ void FMCPPythonTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 		T.Name = TEXT("python_register_tool");
 		T.Description = TEXT(
 			"Register a new MCP tool backed by Python code. The code runs with 'import json' and '_mcp_params' dict already set. "
-			"Set '_mcp_result' string to return a value. "
-			"Params: name (string), description (string), code (string — Python source).");
+			"Set '_mcp_result' string to return a value.");
+		T.Params.Add(FMCPParamSchema(TEXT("name"),        TEXT("string"), TEXT("Tool name to register"), true));
+		T.Params.Add(FMCPParamSchema(TEXT("description"), TEXT("string"), TEXT("Tool description"), true));
+		T.Params.Add(FMCPParamSchema(TEXT("code"),        TEXT("string"), TEXT("Python source code for the tool body"), true));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonRegisterTool(P); };
 		OutTools.Add(T);
 	}
 	{
 		FMCPToolDef T;
 		T.Name = TEXT("python_unregister_tool");
-		T.Description = TEXT("Remove a dynamically registered Python tool. Params: name (string).");
+		T.Description = TEXT("Remove a dynamically registered Python tool.");
+		T.Params.Add(FMCPParamSchema(TEXT("name"), TEXT("string"), TEXT("Name of the tool to remove"), true));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonUnregisterTool(P); };
 		OutTools.Add(T);
 	}
@@ -187,8 +196,8 @@ void FMCPPythonTools::RegisterTools(TArray<FMCPToolDef>& OutTools)
 		T.Name = TEXT("python_reload_tools_from_file");
 		T.Description = TEXT(
 			"Load tool definitions from a JSON file and register them all. "
-			"File format: array of {name, description, code} objects. "
-			"Params: file_path (string).");
+			"File format: array of {name, description, code} objects.");
+		T.Params.Add(FMCPParamSchema(TEXT("file_path"), TEXT("string"), TEXT("Path to the JSON file containing tool definitions"), true));
 		T.Handler = [](const TSharedPtr<FJsonObject>& P) { return PythonReloadToolsFromFile(P); };
 		OutTools.Add(T);
 	}

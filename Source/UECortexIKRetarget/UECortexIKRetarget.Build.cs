@@ -19,6 +19,8 @@ public class UECortexIKRetarget : ModuleRules
 			"UECortex",      // FMCPToolRegistry + FMCPToolBase
 			"IKRig",         // UIKRigDefinition, UIKRetargeter
 			"IKRigEditor",   // UIKRetargeterController
+			"Slate",         // IKRigEditor headers transitively instantiate STableRow/SBorder widgets in this module
+			"SlateCore",
 		});
 	}
 }

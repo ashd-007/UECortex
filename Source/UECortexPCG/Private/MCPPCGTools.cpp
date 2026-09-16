@@ -469,14 +469,14 @@ FMCPToolResult FMCPPCGTools::PCGSetNodeParam(const TSharedPtr<FJsonObject>& Args
 
 #if UE_MCP_VERSION_5_7_PLUS
 	return FMCPToolResult::Error(TEXT("pcg_set_node_param GPU variant requires 5.7+. Use param name directly for CPU params."));
-#endif
-
+#else
 	Settings->Modify();
 	Prop->ImportText_InContainer(*Value, Settings, Settings, PPF_None);
 	Graph->MarkPackageDirty();
 
 	return FMCPToolResult::Success(FString::Printf(
 		TEXT("Set %s.%s.%s = %s"), *NodeName, *Settings->GetClass()->GetName(), *Param, *Value));
+#endif
 }
 
 FMCPToolResult FMCPPCGTools::PCGGetGraph(const TSharedPtr<FJsonObject>& Args)

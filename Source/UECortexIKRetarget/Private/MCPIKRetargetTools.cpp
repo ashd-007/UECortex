@@ -400,6 +400,7 @@ FMCPToolResult FMCPIKRetargetTools::AnimRetargetBatch(const TSharedPtr<FJsonObje
 	TArray<FAssetData> NewAssets = UIKRetargetBatchOperation::DuplicateAndRetarget(
 		AssetsToRetarget, SrcMesh, TgtMesh, Retargeter,
 		TEXT(""), TEXT(""), TEXT(""), Suffix,
+		/*TargetPath=*/TEXT(""), /*bUseSourcePath=*/false,
 		/*bIncludeReferencedAssets=*/true);
 
 	if (NewAssets.IsEmpty())
